@@ -41,19 +41,12 @@ const REFLOOW_BRAND_IDENTITY = {
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const YtDlpWrap = require('yt-dlp-wrap').default;
+const { downloadAudio } = require('./download');
 
-const ytDlpWrap = new YtDlpWrap();
+let downloading = false;
+const binPath = app.isPackaged ? process.resourcesPath : path.join(__dirname, 'bin');
 let selectedDownloadFolder = null;
 const settingsPath = path.join(app.getPath('userData'), 'settings.json');
-
-const ffmpegPath = app.isPackaged
-  ? path.join(process.resourcesPath, 'ffmpeg.exe')
-  : path.join(__dirname, 'bin', 'ffmpeg.exe');
-
-const denoPath = app.isPackaged
-  ? path.join(process.resourcesPath, 'deno.exe')
-  : path.join(__dirname, 'bin', 'deno.exe');
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -92,16 +85,6 @@ function saveSettings() {
 app.whenReady().then(() => {
   loadSettings();
 
-  try {
-    const binaryPath = app.isPackaged
-      ? path.join(process.resourcesPath, 'yt-dlp.exe')
-      : path.join(__dirname, 'bin', 'yt-dlp.exe');
-
-    ytDlpWrap.setBinaryPath(binaryPath);
-  } catch (err) {
-    console.error('Failed to set yt-dlp binary path:', err);
-  }
-
   createWindow();
 });
 
@@ -128,52 +111,20 @@ ipcMain.handle('get-saved-folder', () => {
   return selectedDownloadFolder;
 });
 
-ipcMain.on('download-audio', async (event, { url, format }) => {
-  if (!selectedDownloadFolder) {
-    return event.sender.send('download-error', 'No folder selected. Please select a download folder first.');
-  }
-
-  let videoTitle = 'audio';
+ipcMain.on('download-audio', async (event, payload = {}) => {
+  const send = (name, value) => {
+    if (!event.sender.isDestroyed()) event.sender.send(name, value);
+  };
+  if (downloading) return send('download-error', 'A download is already running.');
+  downloading = true;
   try {
-    const info = await ytDlpWrap.getVideoInfo([
-      url, 
-      '--dump-json', 
-      '--js-runtimes', `deno:${denoPath}`
-    ]);
-    videoTitle = info.title.replace(/[\\/:*?"<>|]/g, '');
+    await downloadAudio({ ...payload, folder: selectedDownloadFolder, bin: binPath },
+      percent => send('download-progress', percent));
+    send('download-complete');
   } catch (err) {
-    console.error('Failed to fetch video info:', err);
+    console.error('Download failed:', err);
+    send('download-error', err.message);
+  } finally {
+    downloading = false;
   }
-
-  const extension = format === 'mp3' ? 'mp3' : 'webm';
-  const outputTemplate = path.join(selectedDownloadFolder, `${videoTitle}.${extension}`).replace(/\\/g, '/');
-
-const args = [
-    url,
-    '-f', 'bestaudio',
-    '-o', outputTemplate,
-    '--js-runtimes', `deno:${denoPath}`,
-    '--rm-cache-dir',
-    '--extractor-args', 'youtube:player_client=default,web_safari;player_js_version=actual'
-  ];
-
-  if (format === 'mp3') {
-    args.push('-x', '--audio-format', 'mp3', '--ffmpeg-location', ffmpegPath);
-  }
-
-  const download = ytDlpWrap.exec(args);
-
-  download.on('progress', (progress) => {
-    event.sender.send('download-progress', progress.percent);
-  });
-
-  download.on('close', () => {
-    event.sender.send('download-complete');
-  });
-
-  download.on('error', (err) => {
-    console.error('Download error:', err.message);
-    event.sender.send('download-error', 'Download failed. Check the console for details.');
-  });
 });
-

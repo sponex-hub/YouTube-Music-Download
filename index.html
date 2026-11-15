@@ -53,7 +53,7 @@
   <div class="folder-path" id="folderPath">📂 No folder selected</div>
   <input id="urlInput" type="text" placeholder="Paste YouTube URL here" />
   <select id="formatSelect">
-    <option value="webm">WebM (best quality)</option>
+    <option value="webm">WebM (original audio)</option>
     <option value="mp3">MP3 (convert)</option>
   </select>
   <button id="downloadBtn">Download</button>
@@ -74,13 +74,15 @@
 
     selectFolderBtn.addEventListener('click', async () => {
       const folder = await window.electronAPI.selectDownloadFolder();
-      updateFolderDisplay(folder);
+      if (folder) updateFolderDisplay(folder);
     });
 
     downloadBtn.addEventListener('click', () => {
       const url = urlInput.value.trim();
       const format = formatSelect.value;
       if (url) {
+        downloadBtn.disabled = true;
+        selectFolderBtn.disabled = true;
         window.electronAPI.downloadAudio(url, format);
         progressText.textContent = 'Starting...';
       }
@@ -91,10 +93,14 @@
     });
 
     window.electronAPI.onComplete(() => {
+      downloadBtn.disabled = false;
+      selectFolderBtn.disabled = false;
       progressText.textContent = '✅ Download complete!';
     });
 
     window.electronAPI.onError((message) => {
+      downloadBtn.disabled = false;
+      selectFolderBtn.disabled = false;
       progressText.textContent = `❌ Error: ${message}`;
     });
 

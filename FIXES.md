@@ -1,38 +1,20 @@
-# Download repair (1.1.1)
+# Version 2.0 — native Windows UI
 
-- Bundle current yt-dlp and Deno; official yt-dlp executables include the EJS solver required for current YouTube challenges.
-- Use default YouTube player selection instead of hard-coded extractor overrides.
-- Download once, with title, video ID and real extension supplied by yt-dlp.
-- Select actual WebM audio for WebM; use FFmpeg extraction/conversion only for MP3.
-- Include ffprobe alongside FFmpeg in packaged apps.
-- Show completion only for a successful subprocess exit; expose actual errors.
-- Validate URLs and formats, ignore external yt-dlp config, and disable playlists.
-- Prevent concurrent downloads in the UI and main process.
+- Replaced Electron/JavaScript with C# Windows Forms on .NET Framework 4.8.
+- Removed Chromium, npm dependencies and portable EXE extraction at startup.
+- Added a restrained native desktop interface in Romanian with MP3/WebM selection, paste, remembered folder, progress, actual error details and open-folder action.
+- Added cancellation of the downloader process tree, including FFmpeg. Closing during a download cancels before exiting.
+- Kept current yt-dlp, Deno and FFmpeg tools. They start only when downloading, not when opening the UI.
+- Prefer WebM or M4A audio before MP3 conversion, avoiding selection of less compatible new audio codecs when ordinary audio streams are available.
+- MP3 output is 192 kbps CBR, 44.1 kHz stereo with ID3v2.3 tags for broad device compatibility. Actual car/USB support depends on the stereo.
+- Keep the single-video restriction, real file extensions, default YouTube clients and success-only completion.
+- Added native regression tests and live MP3/WebM, ffprobe, unavailable-video and cancellation checks.
+- Portable delivery is now a ZIP: extract everything once, then launch `YouTube Audio.exe` alongside its `tools` directory.
 
-## Run or rebuild on Windows
+## Startup observations
 
-Install Node.js 22 or later, then run:
+Local Windows measurements before final packaging showed 38–42 ms from `Main` to the first `Shown` event. External measurement including process launch, writing the measurement file and exiting was approximately 0.64 seconds on the first measured run and 0.09 seconds on subsequent runs. These are machine-specific observations, not a universal performance promise or a direct Electron comparison.
 
-```powershell
-npm ci
-npm run setup:binaries
-npm test
-npm start
-npm run dist -- --config.win.signAndEditExecutable=false
-```
+The UI executable is approximately 165 KB; downloader/runtime/conversion binaries still make up most of the portable archive. They are not loaded at UI startup.
 
-`setup:binaries` downloads current official yt-dlp and Deno builds and FFmpeg/ffprobe from Gyan's FFmpeg builds. Run it again and rebuild when YouTube changes break an older downloader. Close any running app before updating tools.
-
-The manual **Build Windows app** GitHub Actions workflow produces downloadable executables. The upstream GitLab mirror workflow only runs in the original repository.
-
-Windows executables are unsigned. No signing certificate was provided.
-
-## Verification
-
-Regression tests cover URL validation, format selection, filename templates, split progress messages, and subprocess failures. Live download validation uses the Creative Commons Big Buck Bunny video at https://www.youtube.com/watch?v=aqz-KE-bpKQ . Network restrictions, authentication requirements, removed videos, and regional restrictions can still cause individual videos to fail; the application displays yt-dlp's error.
-
-Upstream documentation: https://github.com/yt-dlp/yt-dlp/wiki/EJS
-
-## Third-party software
-
-The packaged app bundles Electron, yt-dlp, Deno, FFmpeg and ffprobe. Their licenses apply independently of this repository's MIT license. FFmpeg builds used here are GPL builds; corresponding FFmpeg source and build information are available at https://www.gyan.dev/ffmpeg/builds/ and https://ffmpeg.org/download.html . yt-dlp Windows binaries include GPL-licensed components; see https://github.com/yt-dlp/yt-dlp/blob/master/THIRD_PARTY_LICENSES.txt .
+See README.md for build, test, update and third-party license instructions.

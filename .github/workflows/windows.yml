@@ -8,17 +8,11 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-      - run: npm ci
-      - run: npm run setup:binaries
-      - run: npm test
-      - run: npm run dist -- --config.win.signAndEditExecutable=false
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-binaries.ps1
+      - run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-native.ps1
+      - run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-native.ps1
+      - run: Compress-Archive -Path native-dist/* -DestinationPath YouTube-Audio-2.0-Windows-x64.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: YouTube-Music-Downloader-Windows
-          path: dist/*.exe
+          name: YouTube-Audio-2.0-Windows-x64
+          path: YouTube-Audio-2.0-Windows-x64.zip
